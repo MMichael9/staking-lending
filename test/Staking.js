@@ -21,7 +21,7 @@ describe("Staking contract", function () {
         const SF_DECIMALS = "0"
         const SF_INITIAL = "0"
     
-        // To deploy our contract, we just have to call Token.deploy() and await
+        // To deploy our contract, we just have to call x.deploy() and await
         // its deployed() method, which happens onces its transaction has been
         // mined.
         const hardhatPriceFeed = await MockPriceFeed.deploy(PF_DECIMALS, PF_INITIAL_PRICE);
@@ -44,7 +44,7 @@ describe("Staking contract", function () {
         return { Staking, hardhatStaking, owner, addr1, addr2, Stablecoin, hardhatStablecoin, initialSupply, hardhatPriceFeed, initialSupply, hardhatSequencerFeed};
     }
 
-    // You can nest describe calls to create subsections.
+    // Deploy
     describe("Deployment", function () {
 
         it("Should first deploy the Token contract, then deploy the Staking contract", async function() {
@@ -97,8 +97,6 @@ describe("Staking contract", function () {
             const stakeAgain = await hardhatStaking.connect(addr1).stake({value: ethers.utils.parseEther("0.3")});
             expect( await hardhatStaking.balances(addr1.address)).to.equal(ethers.utils.parseEther("0.5"));
             expect( await hardhatStaking.totalEthStaked()).to.equal(ethers.utils.parseEther("0.5"));
-
-            //console.log( await hardhatStaking.connect(addr1).getBorrowAmount());
         })
 
         it("Should let user withdraw their staked eth", async function() {
@@ -113,6 +111,20 @@ describe("Staking contract", function () {
             expect(await hardhatStaking.balances(addr2.address)).to.equal(0);
         })
 
+        it("Should calculate the amount a user can borrow using time staked and stake amount", async function() {
+            const{ hardhatStaking, hardhatStablecoin, owner, addr1, addr2, hardhatPriceFeed, initialSupply } = await loadFixture(deployTokenFixture);
+
+            const stakeSuccess = await hardhatStaking.connect(addr2).stake({value: ethers.utils.parseEther("0.1")}); // stake first
+
+            expect(await hardhatStaking.balances(addr2.address)).to.equal(ethers.utils.parseEther("0.1"));
+
+            const initialStakeTime = await hardhatStaking.connect(addr2).stakeTimes(addr2.address);
+            
+            // Increase time by 3 days
+            await time.increase(3 * (60 * 60 * 24));
+            await time.increase(1);
+        })
+
         it("Should let the user borrow some funds in 'USD'", async function() {
             const{ hardhatStaking, hardhatStablecoin, owner, addr1, addr2, hardhatPriceFeed, initialSupply } = await loadFixture(deployTokenFixture);
 
@@ -125,7 +137,6 @@ describe("Staking contract", function () {
             const rc = await borrow.wait();
             const event = rc.events.find(event => event.event === 'Borrow');
             const [borrower, amount, price] = event.args;
-            //console.log(event);
 
 
             expect(await hardhatStaking.debts(addr2.address)).to.equal(amount);
@@ -165,8 +176,6 @@ describe("Staking contract", function () {
             const repayrc = await repay.wait();
             const repayevent = repayrc.events.find(event => event.event === 'Repay');
             const [repayer, repayAmount] = event.args;
-
-            //console.log(repayevent);
 
             expect(await hardhatStablecoin.balanceOf(repayer)).to.equal(0);
 

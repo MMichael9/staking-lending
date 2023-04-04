@@ -38,6 +38,8 @@ contract Staking is Ownable {
     // storage variables
     mapping(address => uint256) public balances;
     mapping(address => uint256) public debts;
+    mapping(address => uint) public stakeTimes;
+
     uint256 public totalEthStaked;
     uint256 public minStakingValue = 0.05 ether;
 
@@ -62,6 +64,7 @@ contract Staking is Ownable {
         uint256 amount = msg.value;
         balances[msg.sender] += amount; // update users balance
         totalEthStaked += amount; // update total staked balance in contract
+        stakeTimes[msg.sender] = block.timestamp;
 
         success = true;
 
@@ -78,6 +81,7 @@ contract Staking is Ownable {
 
         balances[msg.sender] -= amount;
         totalEthStaked -= amount;
+        stakeTimes[msg.sender] = 0; // reset staking time
 
         // transfer eth back to user
         (bool success, /* bytes memory data */) = (msg.sender).call{value: amount}("");
@@ -174,6 +178,18 @@ contract Staking is Ownable {
 
     function getBorrowAmount() public view returns(uint256) {
         return ((((uint(getLatestPrice()) * 1e10) * balances[msg.sender]) / 1e18) / 1e18);
+    }
+
+    function getStakingTime() public view returns(uint) {
+        return stakeTimes[msg.sender];
+    }
+
+    function getBorrowLimit() public view returns(uint256) {
+        uint256 test = getBorrowAmount();
+        uint initialStakeTime = getStakingTime();
+        uint timePassed = block.timestamp - initialStakeTime;
+
+        return timePassed;
     }
 }
 
